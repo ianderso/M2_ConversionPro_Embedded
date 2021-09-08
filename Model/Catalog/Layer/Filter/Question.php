@@ -1,4 +1,5 @@
 <?php
+
 /*
  * Celebros
  *
@@ -11,10 +12,16 @@
  * @category    Celebros
  * @package     Celebros_ConversionPro
  */
+
 namespace Celebros\ConversionPro\Model\Catalog\Layer\Filter;
 
-use \Magento\Catalog\Model\Layer;
-use \Magento\Framework\Simplexml\Element as XmlElement;
+use Magento\Catalog\Model\Layer;
+use Magento\Framework\Simplexml\Element as XmlElement;
+use Magento\Store\Model\StoreManagerInterface;
+use Celebros\ConversionPro\Helper\Data;
+use Celebros\ConversionPro\Helper\Search;
+use Magento\Framework\Pricing\Helper\Data\Proxy as PriceHelper;
+use Magento\Framework\App\RequestInterface;
 
 class Question extends Layer\Filter\AbstractFilter
 {
@@ -27,31 +34,56 @@ class Question extends Layer\Filter\AbstractFilter
      * @var \Celebros\ConversionPro\Helper\Data
      */
     protected $searchHelper;
-    
+
     /**
      * @var string
      */
     protected $type;
-    
+
+    /**
+     * @var array
+     */
     protected $specialTypes = [
         'swatch' => '_checkSwatch'
     ];
 
+    /**
+     * @param Layer\Filter\ItemFactory $filterItemFactory
+     * @param StoreManagerInterface $storeManager
+     * @param Layer $layer
+     * @param Layer\Filter\Item\DataBuilder $itemDataBuilder
+     * @param Data $helper
+     * @param Search $searchHelper
+     * @param PriceHelper $priceHelper
+     * @param array $data
+     */
     public function __construct(
         Layer\Filter\ItemFactory $filterItemFactory,
-        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        StoreManagerInterface $storeManager,
         Layer $layer,
         Layer\Filter\Item\DataBuilder $itemDataBuilder,
-        \Celebros\ConversionPro\Helper\Data $helper,
-        \Celebros\ConversionPro\Helper\Search $searchHelper,
-        array $data = [])
-    {
+        Data $helper,
+        Search $searchHelper,
+        PriceHelper $priceHelper,
+        array $data = []
+    ) {
         $this->helper = $helper;
         $this->searchHelper = $searchHelper;
-        parent::__construct($filterItemFactory, $storeManager, $layer, $itemDataBuilder, $data);
+        $this->priceHelper = $priceHelper;
+        parent::__construct(
+            $filterItemFactory,
+            $storeManager,
+            $layer,
+            $itemDataBuilder,
+            $data
+        );
     }
 
-    public function apply(\Magento\Framework\App\RequestInterface $request)
+    /**
+     * @param RequestInterface $request
+     * @return void
+     */
+    public function apply(RequestInterface $request)
     {
         $filter = $this->searchHelper->getFilterValue($this->getRequestVar());
         if (!empty($filter)) {
@@ -72,157 +104,145 @@ class Question extends Layer\Filter\AbstractFilter
         }
     }
 
+    /**
+     * @param array $values
+     * @return void
+     */
     protected function _updateItems(array $values)
     {
         if (!$this->helper->isMultiselectEnabled()) {
-            // remove all items
             $this->_items = [];
         } else {
             $this->_items = $this->getItems();
-            // remove selected items
-            /*$this->_items = array_filter(
-                $this->getItems(),
-                function ($item) use (&$values) {
-                    return !in_array($item->getValue(), $values);
-                });*/
-            foreach ($this->_items as $item)
+            foreach ($this->_items as $item) {
                 $item->setSelectedValues($values);
+            }
         }
     }
 
+    /**
+     * @return string
+     */
     public function getName()
     {
         if ($this->hasQuestionName()) {
             return $this->getQuestionName();
         }
-        
+
         if (!$this->hasQuestion()) {
             return __('Unknown');
         }
-        
+
         return $this->getQuestion()->getAttribute('Text');
     }
 
     /**
-     * Return question type 
-     *  
-     * @return string Question type
+     * Return question type
+     *
+     * @return string
      */
-    public function getType() : string
+    public function getType(): string
     {
         if (!$this->type) {
             if (!$type = $this->_checkSpecialType()) {
                 $type = (string) strtolower($this->getQuestion()->getAttribute('Type'));
             }
-            
+
             $this->type = $type;
         }
-        
+
         return $this->type;
     }
-    
+
     /**
-     * Check if current question corresponds to any special types 
-     *  
+     * Check if current question corresponds to any special types
+     *
      * @return string|bool
      */
-    protected function _checkSpecialType() : ?string
+    protected function _checkSpecialType(): ?string
     {
         foreach ($this->specialTypes as $specialType => $methodName) {
             if ($this->$methodName()) {
                 return $specialType;
             }
-        }    
-        
+        }
+
         return null;
     }
-    
+
     /**
-     * Special type check function 
-     *  
+     * Special type check function
+     *
      * @return bool
      */
-    protected function _checkSwatch() : bool
+    protected function _checkSwatch(): bool
     {
         if ($swatches = $this->searchHelper->extractDynamicProperty($this->getQuestion(), 'Swatches')) {
             return (bool) ($swatches instanceof XmlElement) ? $swatches->getAttribute('value') : false;
         }
-        
-        return false;  
+
+        return false;
     }
 
+    /**
+     * @return string
+     */
     public function getRequestVar()
     {
         if ($this->hasRequestVar()) {
             return $this->getRequestVar();
         }
-        
+
         if ($this->_isPrice()) {
             return 'price';
         }
-        
+
         if ($this->hasQuestion()) {
             $reqVar = $this->getQuestion()->getAttribute('SideText');
         }
-        
+
         return $this->searchHelper->checkRequestVar($reqVar);
     }
 
+    /**
+     * @return string
+     */
     public function getCurrencySymbol()
     {
         return $this->_storeManager->getStore()->getCurrentCurrency()->getCurrencySymbol();
     }
-    
+
+    /**
+     * @param int $optionId
+     * @return string
+     */
     protected function getOptionText($optionId)
     {
         if ($this->_isPrice()) {
-            if (preg_match('@^_P(\d+)_(\d+)$@', $optionId, $matches)) {
-                $optionId = str_replace('_P', $this->getCurrencySymbol(), $optionId);
-                return str_replace('_', ' - ' . $this->getCurrencySymbol(), $optionId);
-            }
+            return $this->parseAndPreparePriceLabel($optionId);
         }
-        
+
         if ($this->hasAnswers()) {
             foreach ($this->getAnswers()->children() as $answer) {
-                if ($answer->getAttribute('Id') == $optionId)
+                if ($answer->getAttribute('Id') == $optionId) {
                     return $this->_prepareAnswerText($answer);
+                }
             }
         }
-        
-        foreach ($this->searchHelper->getQuestionAnswers($this->getQuestion()->getAttribute('Id'))->Answers->Answer as $answer) {
+
+        $qAnswers = $this->searchHelper->getQuestionAnswers($this->getQuestion()
+            ->getAttribute('Id'))->Answers->Answer;
+        foreach ($qAnswers as $answer) {
             if ($answer->getAttribute('Id') == $optionId) {
-                return $this->_prepareAnswerText($answer); 
+                return $this->_prepareAnswerText($answer);
             }
         }
-        
+
         return __('Unknown value');
     }
 
-    /*protected function _getItemsData()
-    {
-        if (!$this->hasAnswers())
-            return [];
-
-        $items = [];
-        foreach ($this->getAnswers()->children() as $answer) {
-            $items[] = $this->_createItem(
-                $this->_prepareAnswerText($answer),
-                $answer->getAttribute('Id'),
-                $answer->getAttribute('ProductCount'));
-        }
-        
-        foreach ($this->getEanswers()->children() as $answer) {
-            $items[] = $this->_createItem(
-                $this->_prepareAnswerText($answer),
-                $answer->getAttribute('Id'),
-                $answer->getAttribute('ProductCount'));
-        }
-        
-        return $items;
-    }*/
-    
     /**
-     * Collect answers from response data 
+     * Collect answers from response data
      *
      * @return array
      */
@@ -232,39 +252,70 @@ class Question extends Layer\Filter\AbstractFilter
         if (!$this->hasAnswers()) {
             return $items;
         }
-        
+
         /* collect all regular answers */
         foreach ($this->getAnswers()->children() as $answer) {
             $items[] = $answer;
         }
-        
+
         /* collect all extra answers */
         foreach ($this->getEanswers()->children() as $answer) {
             $items[] = $answer;
         }
-        
+
         return $items;
     }
 
+    /**
+     * @return bool
+     */
     protected function _isPrice()
     {
         return $this->hasQuestion()
             && $this->getQuestion()->getAttribute('Type') == 'Price';
     }
 
-    protected function _prepareAnswerText(XmlElement $answer)
-    {
+    /**
+     * @param XmlElement $answer
+     * @return string
+     */
+    protected function _prepareAnswerText(
+        XmlElement $answer,
+        string $position = null
+    ): string {
         $text = $answer->getAttribute('Text');
         if ($this->_isPrice()) {
             $id = $answer->getAttribute('Id');
-            if (preg_match('@^_P(\d+)_(\d+)$@', $id, $matches)) {
-                $text = str_replace('<min>', $matches[1], $text);
-                $text = str_replace('<max>', $matches[2], $text);
-            }
+            $text = $this->parseAndPreparePriceLabel($id, $position);
         }
+
         return $text;
     }
-    
+
+    /**
+     * @param string $string
+     * @return string|null
+     */
+    protected function parseAndPreparePriceLabel(
+        string $string,
+        string $position = null
+    ): ?string {
+        if (preg_match('@^_P(\d+)_(\d+)$@', $string, $matches)) {
+            if (count($matches) == 3) {
+                if ($position == 'first') {
+                    return __('under') . " " . $this->priceHelper->currency($matches[2], true, false);
+                } elseif ($position == 'last') {
+                    return __('over') . " " . $this->priceHelper->currency($matches[1], true, false);
+                } else {
+                    return $this->priceHelper->currency($matches[1], true, false)
+                        . " - " . $this->priceHelper->currency($matches[2], true, false);
+                }
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Create filter item object
      *
@@ -287,7 +338,7 @@ class Question extends Layer\Filter\AbstractFilter
             ->setCount($count)
             ->setSwatchImage($swatchImage);
     }
-    
+
     /**
      * Initialize filter items
      *
@@ -297,16 +348,20 @@ class Question extends Layer\Filter\AbstractFilter
     {
         $data = $this->_getItemsData();
         $items = [];
-        foreach ($data as $itemData) {
+        $last = count($data);
+        foreach ($data as $index => $itemData) {
+            $position = ($index == 0) ? 'first' : null;
+            $position = ($index == $last - 1) ? 'last' : $position;
             $items[] = $this->_createItem(
-                $this->_prepareAnswerText($itemData),
+                $this->_prepareAnswerText($itemData, $position),
                 $itemData->getAttribute('Id'),
                 $itemData->getAttribute('ProductCount'),
                 $itemData->getAttribute('ImageUrl')
             );
         }
-        
+
         $this->_items = $items;
+
         return $this;
     }
 }
