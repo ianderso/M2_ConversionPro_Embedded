@@ -59,4 +59,3 @@ Celebros ConversionPro Embedded
 1.4.5 - price filter labels format has been changed
 
 1.5.0 - graphql has been added
-
