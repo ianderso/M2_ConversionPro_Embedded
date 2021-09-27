@@ -86,12 +86,7 @@ class Question extends Layer\Filter\AbstractFilter
     public function apply(RequestInterface $request)
     {
         $filter = $this->searchHelper->getFilterValue($this->getRequestVar());
-        if (!empty($filter)) {
-            $this->getLayer()->getProductCollection()->addFieldToFilter(
-                $this->getRequestVar(),
-                $filter
-            );
-
+        if (!empty($filter) && !in_array($filter, $this->searchHelper->appliedFilters)) {
             $values = $this->searchHelper->filterValueToArray($filter);
             foreach ($values as $value) {
                 $text = $this->getOptionText($value);
@@ -101,6 +96,7 @@ class Question extends Layer\Filter\AbstractFilter
             }
 
             $this->_updateItems($values);
+            $this->searchHelper->appliedFilters[] = $filter;
         }
     }
 
