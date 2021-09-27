@@ -1,6 +1,6 @@
 <?php
 
-/**
+/*
  * Celebros
  *
  * DISCLAIMER
@@ -8,15 +8,14 @@
  * Do not edit or add to this file if you wish correct extension functionality.
  * If you wish to customize it, please contact Celebros.
  *
- ******************************************************************************
  * @category    Celebros
  * @package     Celebros_ConversionPro
  */
 
 namespace Celebros\ConversionPro\Model;
 
-use Magento\Framework\DataObject;
-use Magento\Framework\Simplexml\Element as XmlElement;
+use \Magento\Framework\DataObject;
+use \Magento\Framework\Simplexml\Element as XmlElement;
 use Celebros\ConversionPro\Model\Logger;
 use Celebros\ConversionPro\Helper\Data;
 use Celebros\ConversionPro\Exception\SearchException;
@@ -27,27 +26,27 @@ class Search
      * @var \Magento\Catalog\Model\ResourceModel\Product\Attribute\CollectionFactory
      */
     protected $attributeCollectionFactory;
-
+    
     /**
      * @var Session
      */
     protected $session;
-
+    
     /**
-     * @var Celebros\ConversionPro\Helper\Data
+     * @var Data
      */
     protected $helper;
-
+    
     /**
      * @var Celebros\ConversionPro\Helper\Analytics
      */
     protected $analytics;
-
+    
     /**
      * @var Celebros\ConversionPro\Helper\Search
      */
     protected $cache;
-
+    
     /**
      * @var \Psr\Log\LoggerInterface
      */
@@ -58,19 +57,22 @@ class Search
      */
     public $curl;
 
+    /**
+     * @var bool
+     */
     protected $newSearch = true;
-
+    
     /**
      * @var \Magento\Framework\Message\ManagerInterface
      */
     protected $messageManager;
-
+    
     protected $attributeCollection;
-
+    
     protected $allQuestions;
-
+    
     protected $systemFilters = ['category_ids', 'visibility'];
-
+    
     public function __construct(
         \Magento\Catalog\Model\ResourceModel\Product\Attribute\CollectionFactory $attributeCollectionFactory,
         Session $session,
@@ -91,18 +93,18 @@ class Search
         $this->context = $context;
         $this->messageManager = $context->getMessageManager();
     }
-
+    
     public function createSearchHandle(DataObject $params = null)
     {
         $searchInfoXml = $this->createSearchInfoXml($params);
         return $this->searchInfoXmlToHandle($searchInfoXml);
     }
-
+    
     public function createSearchInfoXml(DataObject $params = null)
     {
         $this->newSearch = true;
-        !is_null($params) or $params = new DataObject();
-
+        !($params === null) or $params = new DataObject();
+      
         // Search string
         $searchInfoXml = new XmlElement('<SearchInformation/>');
         if ($params->hasQuery()) {
@@ -110,7 +112,7 @@ class Search
             $searchInfoXml->addChild('Query', $query);
             $searchInfoXml->addChild('OriginalQuery', $query);
         }
-
+      
         // Filters
         if ($params->hasFilters() && is_array($params->getFilters())) {
             // create answer container element
@@ -119,7 +121,7 @@ class Search
             foreach ($params->getFilters() as $name => $optionIds) {
                 $this->newSearch = false;
                 if (!in_array($name, $this->systemFilters) && $this->validateRequestVar($name)) {
-                    is_array($optionIds) or $optionIds = array($optionIds);
+                    is_array($optionIds) or $optionIds = [$optionIds];
                     foreach ($optionIds as $optionId) {
                         $optionId = $this->helper->filterValueToArray($optionId);
                         foreach ($optionId as $id) {
@@ -133,17 +135,17 @@ class Search
                     }
                 }
             }
-
+          
             $answersXml->setAttribute('Count', $answerCount);
         }
-
+     
         // Sorting
         if ($params->hasSortBy() && is_array($params->getSortBy())) {
             // [<field-name>, <order>]
             $sortBy = $params->getSortBy();
             $name = array_shift($sortBy);
             $order = array_shift($sortBy);
-            if (!is_null($name)) {
+            if (!($name === null)) {
                 // create sorting options element
                 $fieldName = $this->_getSortingFieldName($name);
                 $ascending = ($order == 'desc') ? 'false' : 'true';
@@ -152,7 +154,7 @@ class Search
                 $sortingOptionsXml->setAttribute('FieldName', $fieldName);
                 $sortingOptionsXml->setAttribute('Ascending', $ascending);
                 $sortingOptionsXml->setAttribute('Method', $method);
-                if (!is_null($isNumeric)) {
+                if (!($isNumeric === null)) {
                     $sortingOptionsXml->setAttribute(
                         'NumericSort',
                         $isNumeric ? 'true' : 'false'
@@ -160,32 +162,32 @@ class Search
                 }
             }
         }
-
+        
         //Profile Name
         if ($profileName = $this->helper->getProfileName()) {
             $searchInfoXml->setAttribute('IsDefaultSearchProfileName', 'false');
             $searchInfoXml->setAttribute('SearchProfileName', urlencode($profileName));
         }
-
+        
         // Page size
         if ($params->hasPageSize()) {
             $searchInfoXml->setAttribute('IsDefaultPageSize', 'false');
             $searchInfoXml->setAttribute('PageSize', $params->getPageSize());
         }
-
+        
         // Current page
         if ($params->hasCurrentPage()) {
             $searchInfoXml->setAttribute('CurrentPage', $params->getCurrentPage());
         }
-
+        
         // some mandatory arguments
         $searchInfoXml->setAttribute('PriceFieldName', 'Price');
         $searchInfoXml->setAttribute('NumberOfPages', 9999999);
-
+       
         return $searchInfoXml;
     }
-
-    public function validateRequestVar(string $varName): bool
+    
+    public function validateRequestVar(string $varName) : bool
     {
         $questions = $this->getAllQuestions();
         $names = ['price'];
@@ -197,18 +199,18 @@ class Search
 
         return in_array($varName, $names);
     }
-
-    public function getAltRequestVars(string $requestVar): array
+    
+    public function getAltRequestVars(string $requestVar) : array
     {
         $requestVar = str_replace('.', '_', $requestVar);
-
+        
         return [
             $requestVar,
             str_replace(' ', '_', $requestVar),
             str_replace(' ', '+', $requestVar)
         ];
     }
-
+    
     public function searchInfoXmlToHandle(XmlElement $xml)
     {
         $handle = '';
@@ -227,16 +229,19 @@ class Search
         if (isset($xml->SortingOptions) && !$this->_isSortingOptionsDefault($xml->SortingOptions)) {
             $handle .= 'E=' . $this->_handleEscape($this->_sortingOptionsToHandleString($xml->SortingOptions)) . '~';
         }
+        
         if (!empty($xml->getAttribute('FirstQuestionId'))) {
             $handle .= 'F=' . $this->_handleEscape($xml->getAttribute('FirstQuestionId')) . '~';
         }
-        if (isset($xml->QwiserAnsweredAnswers) && !empty($xml->QwiserAnsweredAnswers->getAttribute('Count'))) {
-            $handle .= 'G=' . $this->_handleEscape(
-                $this->_answeredAnswersToHandleString($xml->QwiserAnsweredAnswers)
-            ) . '~';
+        
+        if (isset($xml->QwiserAnsweredAnswers)
+            && !empty($xml->QwiserAnsweredAnswers->getAttribute('Count'))
+        ) {
+            $handle .= 'G='
+                . $this->_handleEscape($this->_answeredAnswersToHandleString($xml->QwiserAnsweredAnswers)) . '~';
         }
-        if (
-            !empty($xml->getAttribute('IsDefaultSearchProfileName'))
+        
+        if (!empty($xml->getAttribute('IsDefaultSearchProfileName'))
             && $xml->getAttribute('IsDefaultSearchProfileName') != 'true'
         ) {
             $handle .= 'H=' . $this->_handleEscape($xml->getAttribute('SearchProfileName')) . '~';
@@ -245,9 +250,9 @@ class Search
             $handle .= 'I=' . $this->_handleEscape($xml->getAttribute('PriceFieldName')) . '~';
         }
         if (isset($xml->SpecialCasesDetectedInThisSession)) {
-            $handle .= 'J' . $this->_handleEscape(
-                $this->_specialCasesToHandleString($xml->SpecialCasesDetectedInThisSession)
-            ) . '~';
+            $handle .= 'J'
+                . $this->_handleEscape($this->_specialCasesToHandleString($xml->SpecialCasesDetectedInThisSession))
+                . '~';
         }
         if (!empty($xml->getAttribute('MaxMatchClassFound'))) {
             $handle .= 'K=' . $xml->getAttribute('MaxMatchClassFound') . '~';
@@ -261,15 +266,15 @@ class Search
         if (!empty($xml->getAttribute('Stage')) && $xml->getAttribute('Stage') != '1') {
             $handle .= 'N=' . $xml->getAttribute('Stage') . '~';
         }
-
+            
         return $handle;
     }
-
+    
     protected function _handleEscape($string)
     {
         return str_replace('~', '~~', $string);
     }
-
+    
     protected function _isSortingOptionsDefault(XmlElement $xml)
     {
         $isDefault = ($xml->getAttribute('Ascending') != 'true')
@@ -278,17 +283,17 @@ class Search
             && ($this->getAttribute('Method') == 'Relevancy');
         return $isDefault;
     }
-
+    
     protected function _sortingOptionsToHandleString(XmlElement $xml)
     {
-        $params = array(
+        $params = [
             ($xml->getAttribute('Ascending') == 'true') ? '1' : '0',
             ($xml->getAttribute('NumericSort') == "true") ? '1' : '0',
             $this->_sortMethodToInt($xml->getAttribute('Method')),
-            $xml->getAttribute('FieldName'));
+            $xml->getAttribute('FieldName')];
         return implode('^', $params);
     }
-
+    
     protected function _answeredAnswersToHandleString(XmlElement $xml)
     {
         $handle = '';
@@ -303,12 +308,12 @@ class Search
         }
         return $handle;
     }
-
+    
     protected function _specialCasesToHandleString(XmlElement $xml)
     {
         return implode('^', $xml->children());
     }
-
+    
     protected function _sortMethodToInt($method)
     {
         switch ($method) {
@@ -322,13 +327,13 @@ class Search
                 return -1;
         }
     }
-
+    
     protected function _effectOnSearchPathToInt($effect)
     {
         if (is_numeric($effect)) {
             return $effect;
         }
-
+            
         switch ($effect) {
             case 'Exclude':
                 return 0;
@@ -340,7 +345,7 @@ class Search
                 return -1;
         }
     }
-
+    
     public function search($query)
     {
         $request = sprintf(
@@ -348,25 +353,21 @@ class Search
             $this->helper->getSiteKey(),
             $this->prepareSearchQueryForRequest($query)
         );
-
         return $this->_request($request);
     }
-
+    
     public function prepareSearchQueryForRequest($query)
     {
         return str_replace("%2B", "%20", urlencode($query));
     }
-
+    
     public function getCustomResults($searchHandle, $isNewSearch, $previousSearchHandle = '')
     {
         // use previous search handle if not provided
-        if (
-            empty($previousSearchHandle)
-            && $this->session->hasPreviousSearchHandle()
-        ) {
+        if (empty($previousSearchHandle) && $this->session->hasPreviousSearchHandle()) {
             $previousSearchHandle = $this->session->getPreviousSearchHandle();
         }
-
+            
         $request = sprintf(
             'GetCustomResults?Sitekey=%s&SearchHandle=%s&NewSearch=%s&PreviousSearchHandle=%s',
             $this->helper->getSiteKey(),
@@ -374,7 +375,7 @@ class Search
             ($this->newSearch ? '1' : '0'),
             (!$this->newSearch ? $previousSearchHandle : '')
         );
-
+        
         $response = $this->_request($request);
 
         if ($this->helper->isRequestDebug()) {
@@ -384,21 +385,23 @@ class Search
             $this->messageManager->addSuccess($this->helper->prepareDebugMessage($message));
         }
 
-        $this->isFallbackRedirect($response);
-        $this->isSingleProductsRedirect($response);
-
+        if ($this->helper->isRedirectAvailable()) {
+            $this->isFallbackRedirect($response);
+            $this->isSingleProductsRedirect($response);
+        }
+        
         // save previous search handle
         $previousSearchHandle = $response->QwiserSearchResults->getAttribute('SearchHandle');
         $this->session->setPreviousSearchHandle($previousSearchHandle);
-
+        
         return $response;
     }
-
-    protected function _extractProductSequenceFromResponse(XmlElement $response): string
+    
+    protected function _extractProductSequenceFromResponse(XmlElement $response) : string
     {
         $productSequence = [];
         $products = $response->QwiserSearchResults->Products;
-
+        
         foreach ($products->children() as $rawDocument) {
             foreach ($rawDocument->Fields->children() as $field) {
                 if ($field->getAttribute('name') == Data::RESPONSE_XML_TITLE_ATTRIBUTE_NAME) {
@@ -409,12 +412,12 @@ class Search
                 }
             }
 
-            $productSequence[] = $name . '(' . $price . ')';
+            $productSequence[] = $name . '(' . $price. ')';
         }
 
         return implode(", ", $productSequence);
     }
-
+    
     public function isSingleProductsRedirect($results)
     {
         $relevantProductsCount = $results->QwiserSearchResults->getAttribute('RelevantProductsCount');
@@ -430,20 +433,20 @@ class Search
             }
         }
     }
-
+    
     public function prepareUrlForRedirect($rawUrl)
     {
-        if (strpos($rawUrl, "//") !== false && strpos($rawUrl, "//") == 0) {
+        if (strpos($rawUrl, "//") !== false && strpos($rawUrl, "//") === 0) {
             $rawUrl = substr_replace($rawUrl, null, 0, 2);
         }
-
+        
         if (!preg_match("~^(?:f|ht)tps?://~i", $rawUrl)) {
             $rawUrl = "http://" . $rawUrl;
         }
-
+        
         return $rawUrl;
     }
-
+    
     public function isFallbackRedirect($results)
     {
         $maxMatchClassFound = $results->QwiserSearchResults->getAttribute("MaxMatchClassFound");
@@ -456,8 +459,11 @@ class Search
                     && $this->helper->fallbackRedirectUrl()) ? true : false;
             }
         }
-
-        if ($maxMatchClassFound == 'None' && $minMatchClassFound == 'None' && $redirect) {
+        
+        if ($maxMatchClassFound == 'None'
+            && $minMatchClassFound == 'None'
+            && $redirect
+        ) {
             $this->analytics->sendAnalyticsRequest($results);
             $this->context->getRedirect()->redirect(
                 $this->context->getResponse(),
@@ -465,7 +471,7 @@ class Search
             );
         }
     }
-
+    
     public function getAllQuestions()
     {
         if (!$this->allQuestions) {
@@ -476,10 +482,10 @@ class Search
             );
             $this->allQuestions = $this->_request($request);
         }
-
+        
         return $this->allQuestions;
     }
-
+    
     public function getQuestionAnswers($questionId)
     {
         $request = sprintf(
@@ -487,15 +493,14 @@ class Search
             $this->helper->getSiteKey(),
             $questionId
         );
-
         return $this->_request($request);
     }
-
+    
     protected function _request($request, $source = null)
     {
         $requestUrl = $this->_requestUrl($request);
         $startTime = round(microtime(true) * 1000);
-        $cacheId = $this->cache->getId(__METHOD__, array($request));
+        $cacheId = $this->cache->getId(__METHOD__, [$request]);
         if ($response = $this->cache->load($cacheId)) {
             if ($this->helper->isRequestDebug()) {
                 $stime = round(microtime(true) * 1000) - $startTime;
@@ -510,9 +515,9 @@ class Search
             $this->curl->addHeader('Accept', 'text/xml');
             $this->curl->get($requestUrl);
             $response = $this->curl->getBody();
-
+            
             $this->cache->save($response, $cacheId);
-
+            
             if ($this->helper->isRequestDebug()) {
                 $stime = round(microtime(true) * 1000) - $startTime;
                 $message = [
@@ -524,31 +529,31 @@ class Search
                 $this->messageManager->addSuccess($this->helper->prepareDebugMessage($message));
             }
         }
-
+        
         return $this->_parseResponse($response);
     }
-
+    
     protected function _getHostUrl()
     {
         $host = $this->helper->getHost();
         $host = preg_replace('@^http://@', '', $host);
         $host = 'http://' . rtrim($host);
-
+        
         $port = $this->helper->getPort();
-
+        
         return empty($port) ? $host : $host . ':' . $port;
     }
-
+    
     protected function _requestUrl($request)
     {
         return $this->_getHostUrl() . '/' . ltrim($request, '/');
     }
-
+    
     public function parseXmlResponse($response)
     {
         return $this->_parseResponse($response);
     }
-
+    
     protected function _parseResponse($response)
     {
         try {
@@ -578,9 +583,9 @@ class Search
     }
 
     /**
-     * @param  string           $message
-     * @param  string           $response
-     * @param  \Exception|null  $exception
+     * @param  string $message
+     * @param  string $response
+     * @param  \Exception|null $exception
      * @return void
      */
     protected function _logException(
@@ -594,14 +599,14 @@ class Search
             }
         }
     }
-
+    
     protected function _escapeQueryString($query)
     {
         $query = str_replace(' ', '+', $query);
         $query = str_replace('&', '%26', $query);
         return $query;
     }
-
+    
     protected function _getSortingFieldName($name)
     {
         if ($name == 'name') {
@@ -612,7 +617,7 @@ class Search
             return ucfirst($name);
         }
     }
-
+    
     protected function _getSortingMethod($name)
     {
         if (in_array($name, ['relevance', 'position'])) {
@@ -623,20 +628,18 @@ class Search
             $attributeCollection = $this->_getAttributeCollection();
             $attribute = $attributeCollection->getItemByColumnValue('code', $name);
             $isNumeric = false;
-            if (!is_null($attribute)) {
+            if (!($attribute === null)) {
                 $isNumeric = in_array($attribute->getBackendType(), ['int', 'decimal', 'datetime']);
             }
-
             return ['SpecifiedField', $isNumeric];
         }
     }
-
+    
     protected function _getAttributeCollection()
     {
-        if (is_null($this->attributeCollection)) {
+        if ($this->attributeCollection === null) {
             $this->attributeCollection = $this->attributeCollectionFactory->create();
         }
-
         return $this->attributeCollection;
     }
 }
