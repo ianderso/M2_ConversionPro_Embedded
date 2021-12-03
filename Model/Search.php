@@ -148,7 +148,7 @@ class Search
             if (!($name === null)) {
                 // create sorting options element
                 $fieldName = $this->_getSortingFieldName($name);
-                $ascending = ($order == 'desc') ? 'false' : 'true';
+                $ascending = (strtolower($order) == 'desc') ? 'false' : 'true';
                 list($method, $isNumeric) = $this->_getSortingMethod($name);
                 $sortingOptionsXml = $searchInfoXml->addChild('SortingOptions');
                 $sortingOptionsXml->setAttribute('FieldName', $fieldName);
