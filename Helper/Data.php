@@ -58,6 +58,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     public const RESPONSE_XML_TITLE_ATTRIBUTE_NAME = 'Title';
     public const RESPONSE_XML_PRICE_ATTRIBUTE_NAME = 'Price';
     public const PRICE_RANGE_TEMPLATE = 'PRICE_RANGE';
+    public const XML_PATH_CUST_GROUP_PRINCIPLES = 'conversionpro/display_settings/principles_cust_group';
 
     protected $permittedHandles = [
         'catalog_category',
@@ -79,11 +80,6 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     protected $state;
 
     /**
-     * @var \Magento\Framework\Message\ManagerInterface
-     */
-    protected $messageManager;
-
-    /**
      * @var \Magento\Store\Model\StoreManagerInterface
      */
     protected $storeManager;
@@ -98,21 +94,35 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
      */
     protected $url;
 
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    /**
+     * @var \Magento\Customer\Api\GroupRepositoryInterface
+     */
+    protected $groupRepository;
+
     public function __construct(
         Context $context,
         \Magento\Framework\Registry $registry,
         \Magento\Framework\App\State $state,
-        \Magento\Framework\Message\ManagerInterface $messageManager,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
         \Magento\Framework\Pricing\Helper\Data $priceHelper,
-        \Magento\Framework\UrlInterface $urlInterface
+        \Magento\Framework\UrlInterface $urlInterface,
+        \Celebros\Main\Helper\Debug $debug,
+        \Magento\Customer\Model\Session $customerSession,
+        \Magento\Customer\Api\GroupRepositoryInterface $groupRepository
     ) {
         $this->registry = $registry;
         $this->state = $state;
-        $this->messageManager = $messageManager;
         $this->storeManager = $storeManager;
         $this->priceHelper = $priceHelper;
         $this->url = $urlInterface;
+        $this->debug = $debug;
+        $this->customerSession = $customerSession;
+        $this->groupRepository = $groupRepository;
         parent::__construct($context);
     }
 
@@ -182,21 +192,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
             $message['source'] =  $source;
         }
 
-        $this->messageManager->getMessages()->deleteMessageByIdentifier('celebros_engine_status');
-
-        if ($engineStatus) {
-            $statusMessage = $this->messageManager->createMessage(
-                MessageInterface::TYPE_SUCCESS,
-                'celebros_engine_status'
-            )->setText($this->prepareDebugMessage($message));
-        } else {
-            $statusMessage = $this->messageManager->createMessage(
-                MessageInterface::TYPE_NOTICE,
-                'celebros_engine_status'
-            )->setText($this->prepareDebugMessage($message));
-        }
-
-        $this->messageManager->addMessage($statusMessage);
+        $this->debug->addMessage($this->prepareDebugMessage($message));
     }
 
     public function isCategory(): bool
@@ -361,9 +357,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
             ];
 
             if ($campaignState) {
-                $this->messageManager->addSuccess($this->prepareDebugMessage($message));
-            } else {
-                $this->messageManager->addNotice($this->prepareDebugMessage($message));
+                $this->debug->addMessage($this->prepareDebugMessage($message));
             }
         }
 
@@ -667,6 +661,49 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     {
         return (int) $this->scopeConfig->getValue(
             self::XML_PATH_FILTER_SEARCH_QTY,
+            ScopeInterface::SCOPE_STORE,
+            $store
+        );
+    }
+
+    /**
+     * @return false
+     */
+    public function getCurrentCustomerGroup()
+    {
+        if ($this->customerSession->isLoggedIn()) {
+            $groupId = $this->customerSession->getCustomer()->getGroupId();
+            $group = $this->groupRepository->getById($groupId);
+
+            return $group;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return false|string
+     */
+    public function getCurrentCustomerGroupName()
+    {
+        $group = $this->getCurrentCustomerGroup();
+        if ($group && $groupCode = $group->getCode()) {
+            $groupCode = str_replace(" ", "_", $groupCode);
+
+            return strtolower($groupCode);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param $store
+     * @return mixed
+     */
+    public function isCustomerGroupNameUsedForPrinciples($store = null)
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_CUST_GROUP_PRINCIPLES,
             ScopeInterface::SCOPE_STORE,
             $store
         );

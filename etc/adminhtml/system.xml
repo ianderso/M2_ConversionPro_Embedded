@@ -110,6 +110,10 @@
                 <field id="profile_name" translate="label" type="text" sortOrder="120" showInDefault="1" showInWebsite="0" showInStore="1">
                     <label>Profile Name</label>
                 </field>
+                <field id="principles_cust_group" translate="label" type="select" sortOrder="124" showInDefault="1" showInWebsite="0" showInStore="1">
+                    <label>Use Customer Group Name For Principles</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
                 <field id="fallback_redirect" translate="label" type="select" sortOrder="130" showInDefault="1" showInWebsite="0" showInStore="1">
                     <label>Enable Fallback Redirect</label>
                     <validate>required-entry validate-select</validate>

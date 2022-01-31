@@ -61,3 +61,5 @@ Celebros ConversionPro Embedded
 1.5.0 - graphql has been added
 
 1.5.1 - tech fixes for graphql; refactoring
+
+1.5.2 - tech fixes; debug messages displaying has been fixed; customer group name to principles has been added to request
