@@ -65,7 +65,7 @@ class Search
     /**
      * @var \Magento\Framework\Message\ManagerInterface
      */
-    protected $messageManager;
+    protected $debug;
     
     protected $attributeCollection;
     
@@ -81,7 +81,8 @@ class Search
         \Celebros\ConversionPro\Helper\Cache $cache,
         \Magento\Framework\App\Action\Context $context,
         Logger $logger,
-        \Celebros\ConversionPro\Client\Curl $curl
+        \Celebros\ConversionPro\Client\Curl $curl,
+        \Celebros\Main\Helper\Debug $debug
     ) {
         $this->session = $session;
         $this->attributeCollectionFactory = $attributeCollectionFactory;
@@ -91,7 +92,7 @@ class Search
         $this->logger = $logger;
         $this->curl = $curl;
         $this->context = $context;
-        $this->messageManager = $context->getMessageManager();
+        $this->debug = $debug;
     }
     
     public function createSearchHandle(DataObject $params = null)
@@ -382,7 +383,7 @@ class Search
             $message = [];
             $message['title'] = __('Celebros Search Engine');
             $message['products_sequence'] = $this->_extractProductSequenceFromResponse($response);
-            $this->messageManager->addSuccess($this->helper->prepareDebugMessage($message));
+            $this->debug->addMessage($this->helper->prepareDebugMessage($message));
         }
 
         if ($this->helper->isRedirectAvailable()) {
@@ -498,6 +499,11 @@ class Search
     
     protected function _request($request, $source = null)
     {
+        $customerGroupName = $this->helper->getCurrentCustomerGroupName();
+        if ($customerGroupName && $this->helper->isCustomerGroupNameUsedForPrinciples()) {
+            $request .= '&principles=' . $customerGroupName;
+        }
+        
         $requestUrl = $this->_requestUrl($request);
         $startTime = round(microtime(true) * 1000);
         $cacheId = $this->cache->getId(__METHOD__, [$request]);
@@ -509,7 +515,7 @@ class Search
                     'request' => $requestUrl,
                     'cached' => 'TRUE'
                 ];
-                $this->messageManager->addSuccess($this->helper->prepareDebugMessage($message));
+                $this->debug->addMessage($this->helper->prepareDebugMessage($message));
             }
         } else {
             $this->curl->addHeader('Accept', 'text/xml');
@@ -526,7 +532,7 @@ class Search
                     'cached' => 'FALSE',
                     'duration' => $stime . 'ms'
                 ];
-                $this->messageManager->addSuccess($this->helper->prepareDebugMessage($message));
+                $this->debug->addMessage($this->helper->prepareDebugMessage($message));
             }
         }
         
@@ -574,8 +580,8 @@ class Search
                 'title' => __('Celebros Search Engine'),
                 'request' => $exception->getMessage()
             ];
-            
-            $this->messageManager->addSuccess($this->helper->prepareDebugMessage($excMessage));
+
+            $this->debug->addMessage($this->helper->prepareDebugMessage($excMessage));
             //throw $exception;
         }
 

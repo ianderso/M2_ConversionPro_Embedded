@@ -73,4 +73,11 @@
             <argument name="curl" xsi:type="object">Celebros\ConversionPro\Client\Curl</argument>
         </arguments>
     </type>
+    <type name="Celebros\Main\Helper\Debug">
+        <arguments>
+            <argument name="debugModules" xsi:type="array">
+                <item name="conversionpro" xsi:type="string">conversionpro/advanced/request_show</item>
+            </argument>
+        </arguments>
+    </type>
 </config>
