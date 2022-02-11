@@ -31,7 +31,7 @@ class Data extends \Celebros\ConversionPro\Helper\Data
             $store
         ) && !$this->isGraphql();
     }
-    
+
     protected function getOpName()
     {
         return $this->_request->getParam('operationName', false);
@@ -94,23 +94,23 @@ class Data extends \Celebros\ConversionPro\Helper\Data
 
     public function isFilters(): bool
     {
-        if ($this->isGraphql()) {
-            $opName = $this->getOpName();
-            if ($opName == 'getProductFiltersByCategory'
-                && $this->isNavToSearchEnabled()
-            ) {
-                $vars = $this->_request->getParam('variables', false);
-                if ($vars) {
-                    $vars = json_decode($vars, true);
-                    $catId = $vars['categoryIdFilter']['eq'];
-                    return !$this->checkBlackList($catId);
-                }
-            }
-
-            return (strtolower($opName) == 'getproductfiltersbysearch');
+        if (!$this->isGraphql() || !$this->isEnabled()) {
+            return false;
         }
 
-        return false;
+        $opName = $this->getOpName();
+        if ($opName == 'getProductFiltersByCategory'
+            && $this->isNavToSearchEnabled()
+        ) {
+            $vars = $this->_request->getParam('variables', false);
+            if ($vars) {
+                $vars = json_decode($vars, true);
+                $catId = $vars['categoryIdFilter']['eq'];
+                return !$this->checkBlackList($catId);
+            }
+        }
+
+        return (strtolower($opName) === 'getproductfiltersbysearch');
     }
 
     public function isAutoComplete(): bool
@@ -147,10 +147,10 @@ class Data extends \Celebros\ConversionPro\Helper\Data
 
         return (int) $this->_request->getParam('id', false);
     }
-    
+
     /**
      * @return bool
-     */    
+     */
     public function isRedirectAvailable(): bool
     {
         return false;
