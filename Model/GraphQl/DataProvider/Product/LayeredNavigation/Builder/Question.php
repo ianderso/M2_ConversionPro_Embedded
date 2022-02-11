@@ -42,6 +42,11 @@ class Question implements LayerBuilderInterface
     private $layerFormatter;
 
     /**
+     * @var \Celebros\ConversionPro\Helper\Graphql\Data
+     */
+    private $graphqlHelper;
+
+    /**
      * @var array
      */
     private $bucketNameFilter = [
@@ -57,10 +62,12 @@ class Question implements LayerBuilderInterface
     public function __construct(
         AttributeOptionProvider $attributeOptionProvider,
         LayerFormatter $layerFormatter,
+        \Celebros\ConversionPro\Helper\Graphql\Data $graphqlHelper,
         $bucketNameFilter = []
     ) {
         $this->attributeOptionProvider = $attributeOptionProvider;
         $this->layerFormatter = $layerFormatter;
+        $this->graphqlHelper = $graphqlHelper;
         $this->bucketNameFilter = \array_merge($this->bucketNameFilter, $bucketNameFilter);
     }
 
@@ -71,6 +78,10 @@ class Question implements LayerBuilderInterface
      */
     public function build(AggregationInterface $aggregation, ?int $storeId): array
     {
+        if (!$this->graphqlHelper->isFilters()) {
+            return [];
+        }
+
         $attributeOptions = $this->getAttributeOptions($aggregation);
 
         // build layer per attribute
