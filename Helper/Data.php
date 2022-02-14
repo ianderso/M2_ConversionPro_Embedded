@@ -95,6 +95,11 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     protected $url;
 
     /**
+     * @var \Celebros\Main\Helper\Debug
+     */
+    protected $debug;
+
+    /**
      * @var \Magento\Customer\Model\Session
      */
     protected $customerSession;
@@ -727,15 +732,15 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 
     /**
      * @return string
-     */    
+     */
     public function getCurrentUrl(): string
     {
         return $this->url->getCurrentUrl();
     }
-    
+
     /**
      * @return bool
-     */    
+     */
     public function isRedirectAvailable(): bool
     {
         return true;

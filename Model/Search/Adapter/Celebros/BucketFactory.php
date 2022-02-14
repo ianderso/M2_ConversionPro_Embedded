@@ -32,7 +32,15 @@ class BucketFactory
         $documentId = null;
         $values = [];
         $label = $rawDocument->getAttribute('SideText');
+
+        $rawAnswers = [];
         foreach ($rawDocument->Answers->children() as $rawAnswerDocument) {
+            $rawAnswers[] = $rawAnswerDocument;
+        }
+        foreach ($rawDocument->ExtraAnswers->children() as $rawAnswerDocument) {
+            $rawAnswers[] = $rawAnswerDocument;
+        }
+        foreach ($rawAnswers as $rawAnswerDocument) {
             $values[] = $this->objectManager->create(
                 \Magento\Framework\Search\Response\Aggregation\Value::class,
                 [
