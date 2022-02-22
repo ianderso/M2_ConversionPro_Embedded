@@ -62,4 +62,4 @@ Celebros ConversionPro Embedded
 
 1.5.1 - tech fixes for graphql; refactoring
 
-1.5.2 - tech fixes; debug messages displaying has been fixed; customer group name to principles has been added to request
+1.5.2 - tech fixes; SSUITE-787: Change debug messages output; customer group name to principles has been added to request; SSUITE-795: PWA - Fix IDs instead of label in layered navigation; SSUITE-811: Add extra answers for PWA in filters block
