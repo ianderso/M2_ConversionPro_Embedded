@@ -16,6 +16,8 @@ namespace Celebros\ConversionPro\Model;
 
 use Celebros\ConversionPro\Helper\Data as Helper;
 
+use Monolog\DateTimeImmutable;
+
 class Logger extends \Monolog\Logger
 {
     /**
